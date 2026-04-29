@@ -1,0 +1,72 @@
+# tools/inference-tools.yml
+# Shared inference tools used by all agents
+
+tools:
+  inference:
+    infer:
+      description: "Run inference on a prompt using the quality-first router"
+      input:
+        prompt: { type: "string", required: true }
+        task_type: { type: "string", enum: ["simple", "complex", "proven"], default: "simple" }
+        max_tokens: { type: "integer", default: 500 }
+        temperature: { type: "float", default: 0.7 }
+      output: { type: "string" }
+      cost_estimate: "free if local, $0.01-$0.10 if Claude"
+
+    validate_quality:
+      description: "Compare local output to Claude (ground truth) — returns 0-1 quality score"
+      input:
+        prompt: { type: "string", required: true }
+        local_output: { type: "string", required: true }
+      output:
+        quality_score: { type: "float", min: 0, max: 1 }
+        comparison: { type: "string" }
+      cost_estimate: "$0.05 per validation (uses Claude)"
+
+    route_task:
+      description: "Determine whether to use local or Claude for a task"
+      input:
+        prompt: { type: "string", required: true }
+        task_type: { type: "string", required: true }
+      output:
+        router_decision: { type: "string", enum: ["local", "claude", "proven"] }
+        reasoning: { type: "string" }
+        cost_estimate: { type: "float" }
+      cost_estimate: "free"
+
+  cost_tracking:
+    log_inference:
+      description: "Log inference cost for tracking"
+      input:
+        model_used: { type: "string", required: true }
+        provider: { type: "string", enum: ["local", "claude"], required: true }
+        tokens_input: { type: "integer", required: true }
+        tokens_output: { type: "integer", required: true }
+        cost_usd: { type: "float", required: true }
+        latency_ms: { type: "float", required: true }
+      cost_estimate: "free"
+
+    get_cost_summary:
+      description: "Get daily/monthly cost summary"
+      input:
+        period: { type: "string", enum: ["daily", "monthly"], default: "daily" }
+        agent_id: { type: "string", required: false }
+      output: { type: "object", fields: ["total_cost", "inference_count", "by_agent", "by_provider", "avg_latency"] }
+      cost_estimate: "free"
+
+  observability:
+    log_action:
+      description: "Log an action to the audit trail"
+      input:
+        action: { type: "string", required: true }
+        details: { type: "object", required: true }
+        git_commit_sha: { type: "string", required: false }
+      cost_estimate: "free"
+
+    get_audit_log:
+      description: "Retrieve audit log for an agent"
+      input:
+        agent_id: { type: "string", required: true }
+        limit: { type: "integer", default: 100 }
+      output: { type: "array" }
+      cost_estimate: "free"

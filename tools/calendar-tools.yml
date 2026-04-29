@@ -1,0 +1,105 @@
+# tools/calendar-tools.yml
+# Calendar and scheduling tools used by Calendar agent (and flex roles)
+
+tools:
+  calendar:
+    list_events:
+      description: "List upcoming calendar events"
+      input:
+        days_ahead: { type: "integer", default: 7 }
+        calendar_id: { type: "string", default: "primary" }
+      output:
+        events: { type: "array", items: { type: "object", fields: ["id", "title", "start", "end", "description"] } }
+      approval_required: false
+      cost_estimate: "free (Google Calendar API)"
+
+    create_event:
+      description: "Create a new calendar event"
+      input:
+        title: { type: "string", required: true }
+        start: { type: "string", required: true, format: "ISO 8601 datetime" }
+        end: { type: "string", required: true, format: "ISO 8601 datetime" }
+        description: { type: "string", required: false }
+        attendees: { type: "array", items: { type: "string" }, required: false }
+        calendar_id: { type: "string", default: "primary" }
+      approval_required: false
+      cost_estimate: "free"
+
+    update_event:
+      description: "Update an existing calendar event"
+      input:
+        event_id: { type: "string", required: true }
+        updates: { type: "object", required: true }
+      approval_required: false
+      cost_estimate: "free"
+
+    delete_event:
+      description: "Delete a calendar event"
+      input:
+        event_id: { type: "string", required: true }
+      approval_required: true
+      approval_gate: "destructive_operations"
+      severity: "warning"
+      cost_estimate: "free"
+
+    block_time:
+      description: "Block time on calendar for focused work"
+      input:
+        title: { type: "string", required: true }
+        start: { type: "string", required: true }
+        end: { type: "string", required: true }
+        recurrence: { type: "string", required: false, example: "RRULE:FREQ=WEEKLY;BYDAY=MO,WE,FR" }
+      approval_required: false
+      cost_estimate: "free"
+
+    find_free_slot:
+      description: "Find a free time slot for a meeting or task"
+      input:
+        duration_minutes: { type: "integer", required: true }
+        earliest: { type: "string", required: true, format: "ISO 8601 datetime" }
+        latest: { type: "string", required: true, format: "ISO 8601 datetime" }
+        prefer_morning: { type: "boolean", default: true }
+      output:
+        slot_start: { type: "string" }
+        slot_end: { type: "string" }
+      approval_required: false
+      cost_estimate: "free"
+
+  tasks:
+    create_task:
+      description: "Create a task in task management system"
+      input:
+        title: { type: "string", required: true }
+        due_date: { type: "string", required: false }
+        priority: { type: "string", enum: ["low", "medium", "high"], default: "medium" }
+        tags: { type: "array", items: { type: "string" }, required: false }
+      approval_required: false
+      cost_estimate: "free"
+
+    list_tasks:
+      description: "List tasks (optionally filtered)"
+      input:
+        status: { type: "string", enum: ["all", "pending", "completed"], default: "pending" }
+        priority: { type: "string", required: false }
+        due_before: { type: "string", required: false }
+      output:
+        tasks: { type: "array" }
+      approval_required: false
+      cost_estimate: "free"
+
+    complete_task:
+      description: "Mark a task as completed"
+      input:
+        task_id: { type: "string", required: true }
+      approval_required: false
+      cost_estimate: "free"
+
+  reminders:
+    set_reminder:
+      description: "Set a reminder for a specific time"
+      input:
+        message: { type: "string", required: true }
+        remind_at: { type: "string", required: true, format: "ISO 8601 datetime" }
+        channel: { type: "string", enum: ["slack", "email", "notification"], default: "notification" }
+      approval_required: false
+      cost_estimate: "free"

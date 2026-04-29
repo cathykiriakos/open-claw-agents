@@ -1,0 +1,90 @@
+# agents/calendar.agent.yml
+# Calendar Agent — manages scheduling, time blocking, and task management
+
+agent:
+  extends: ../templates/base-agent.yml
+
+  id: "calendar"
+  name: "Calendar Agent"
+  primary_role: "scheduling"
+  description: "Manages personal and work calendar, tasks, and time blocks"
+
+  # ============================================================================
+  # Capabilities
+  # ============================================================================
+
+  capabilities:
+    primary_role: "scheduling"
+    can_research: true       # Flex: research before scheduling
+    can_synthesize: false
+    can_execute: true        # Flex: execute time-bound tasks
+    can_schedule: true
+    can_handoff: true
+
+  # ============================================================================
+  # Tools
+  # ============================================================================
+
+  tools:
+    inference:
+      $ref: "../tools/inference-tools.yml"
+
+    scheduling:
+      $ref: "../tools/calendar-tools.yml"
+
+    research:                # Flex capability
+      $ref: "../tools/search-tools.yml"
+
+    handoff:
+      hand_off_to_executor:
+        description: "Hand off time-triggered task to Executor"
+        target_agent: "executor"
+        reason_template: "Scheduled time block reached — ready for execution"
+
+      hand_off_to_researcher:
+        description: "Initiate research to inform scheduling"
+        target_agent: "researcher"
+        reason_template: "Need research context before blocking time"
+
+  # ============================================================================
+  # Inference Overrides — calendar ops are simple, use local heavily
+  # ============================================================================
+
+  inference:
+    routing_strategy: "cost-optimized"  # Local-first
+    task_types:
+      simple:
+        keywords: ["create", "schedule", "block", "remind", "list", "find", "cancel"]
+        router: "local"
+        model: "gemma:7b"
+
+  # ============================================================================
+  # Config Overrides
+  # ============================================================================
+
+  config:
+    cost_limit_daily_usd: 5.0     # Very low: mostly local inference
+    cost_limit_monthly_usd: 100.0
+
+  # ============================================================================
+  # Integrations
+  # ============================================================================
+
+  integrations:
+    slack: true
+    twitter: false
+    email: true
+    google_calendar: true          # Primary integration
+    git: false
+
+  # ============================================================================
+  # Metadata
+  # ============================================================================
+
+  metadata:
+    version: "1.0.0"
+    created_at: "2026-04-29"
+    last_updated: "2026-04-29"
+    maintainer: "cathy"
+    tags: ["openclaw", "calendar", "scheduler", "production"]
+    stability: "production"

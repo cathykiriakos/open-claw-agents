@@ -1,0 +1,75 @@
+# tools/git-tools.yml
+# Git operation tools used primarily by the Executor agent
+
+tools:
+  git:
+    status:
+      description: "Run git status to see working tree state"
+      approval_required: false
+      cost_estimate: "free"
+
+    diff:
+      description: "Show staged and unstaged changes"
+      input:
+        staged: { type: "boolean", default: false }
+        path: { type: "string", required: false }
+      approval_required: false
+      cost_estimate: "free"
+
+    add:
+      description: "Stage files for commit"
+      input:
+        paths: { type: "array", items: { type: "string" }, required: true }
+      approval_required: false
+      cost_estimate: "free"
+
+    commit:
+      description: "Create a git commit"
+      input:
+        message: { type: "string", required: true }
+        paths: { type: "array", items: { type: "string" }, required: false }
+      approval_required: true
+      approval_gate: "git_operations"
+      cost_estimate: "free"
+
+    push:
+      description: "Push commits to remote"
+      input:
+        branch: { type: "string", required: true }
+        force: { type: "boolean", default: false }
+      approval_required: true
+      approval_gate: "git_operations"
+      severity: "critical"
+      cost_estimate: "free"
+
+    pull:
+      description: "Pull latest from remote branch"
+      input:
+        branch: { type: "string", required: true }
+      approval_required: false
+      cost_estimate: "free"
+
+    checkout:
+      description: "Switch or create a branch"
+      input:
+        branch: { type: "string", required: true }
+        create: { type: "boolean", default: false }
+      approval_required: false
+      cost_estimate: "free"
+
+    log:
+      description: "View git commit history"
+      input:
+        limit: { type: "integer", default: 10 }
+        branch: { type: "string", required: false }
+      approval_required: false
+      cost_estimate: "free"
+
+    reset_hard:
+      description: "Hard reset to a commit (destructive)"
+      input:
+        ref: { type: "string", required: true }
+      approval_required: true
+      approval_gate: "destructive_operations"
+      severity: "critical"
+      cost_estimate: "free"

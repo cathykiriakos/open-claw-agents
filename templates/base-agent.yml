@@ -1,0 +1,129 @@
+# templates/base-agent.yml
+# All agents extend this template and override specific fields
+
+agent:
+  # Identity (overridden per agent)
+  id: "{{AGENT_ID}}"
+  name: "{{AGENT_NAME}}"
+  primary_role: "{{PRIMARY_ROLE}}"
+  description: "{{DESCRIPTION}}"
+
+  # ============================================================================
+  # Inference Configuration
+  # ============================================================================
+
+  inference:
+    routing_strategy: "quality-first"  # Prefer Claude for quality
+
+    models:
+      local:
+        provider: "ollama"
+        instances:
+          - model: "gemma:7b"
+            name: "fast"
+            purpose: "simple, fast tasks"
+            latency_target_ms: 2000
+          - model: "gemma:13b"
+            name: "smart"
+            purpose: "complex reasoning"
+            latency_target_ms: 5000
+
+      cloud:
+        provider: "claude"
+        model: "claude-sonnet-4-6"
+        fallback: true
+        cost_threshold_usd: 2.0
+
+    task_types:
+      simple:
+        keywords: ["list", "retrieve", "summarize", "extract", "format", "count", "search"]
+        router: "local"
+        model: "gemma:7b"
+
+      complex:
+        keywords: ["analyze", "reason", "decide", "recommend", "evaluate", "strategize", "debug"]
+        router: "cloud"
+        model: "claude-sonnet-4-6"
+
+      proven:
+        router: "local"
+        model: "gemma:13b"
+        quality_threshold: 0.85
+
+  # ============================================================================
+  # Tools (Extended by each agent)
+  # ============================================================================
+
+  tools:
+    inference:
+      $ref: "tools/inference-tools.yml"
+    role_specific: []
+
+  # ============================================================================
+  # Agent Memory & Context
+  # ============================================================================
+
+  memory:
+    backend: "sqlite"
+    database_path: "data/agent_context.db"
+    context_retention: "30d"
+    remember:
+      task_history: true
+      conversation_history: true
+      quality_assessments: true
+      cost_tracking: true
+
+  # ============================================================================
+  # Approval Gates
+  # ============================================================================
+
+  approval_gates:
+    $ref: "approval-gates.yml"
+
+  # ============================================================================
+  # Capabilities & Constraints
+  # ============================================================================
+
+  capabilities:
+    primary_role: "{{PRIMARY_ROLE}}"
+    can_research: false
+    can_synthesize: false
+    can_execute: false
+    can_schedule: false
+    can_handoff: true
+
+  # ============================================================================
+  # Configuration & Behavior
+  # ============================================================================
+
+  config:
+    max_parallel_tasks: 1
+    task_timeout_seconds: 3600
+    verbose_logging: false
+    cost_limit_daily_usd: 10.0
+    cost_limit_monthly_usd: 200.0
+    quality_validation: false
+    quality_validation_frequency: "manual"
+
+  # ============================================================================
+  # Integrations
+  # ============================================================================
+
+  integrations:
+    slack: false
+    twitter: false
+    email: false
+    google_calendar: false
+    git: false
+
+  # ============================================================================
+  # Metadata
+  # ============================================================================
+
+  metadata:
+    version: "1.0.0"
+    created_at: "{{CREATED_AT}}"
+    last_updated: "{{LAST_UPDATED}}"
+    maintainer: "cathy"
+    tags: ["openclaw", "agent"]
+    stability: "production"

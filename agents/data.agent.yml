@@ -1,0 +1,105 @@
+# agents/data.agent.yml
+# Data Agent — synthesizes findings and publishes insights
+
+agent:
+  extends: ../templates/base-agent.yml
+
+  id: "data"
+  name: "Data Agent"
+  primary_role: "synthesis"
+  description: "Synthesizes findings across sources (Reddit, X, YouTube, HN) and publishes insights"
+
+  # ============================================================================
+  # Capabilities
+  # ============================================================================
+
+  capabilities:
+    primary_role: "synthesis"
+    can_research: true       # Flex: can run searches when needed
+    can_synthesize: true
+    can_execute: false
+    can_schedule: true       # Flex: can schedule publications
+    can_handoff: true
+
+  # ============================================================================
+  # Tools
+  # ============================================================================
+
+  tools:
+    inference:
+      $ref: "../tools/inference-tools.yml"
+
+    synthesis:
+      $ref: "../tools/data-tools.yml"
+
+    research:                # Flex capability
+      $ref: "../tools/search-tools.yml"
+
+    publishing:
+      publish_to_slack:
+        description: "Publish synthesis to Slack"
+        channel: "#ai-research"
+        approval_required: true
+        approval_gate: "external_publishing"
+
+      publish_to_twitter:
+        description: "Post thread to Twitter/X"
+        format: "markdown → twitter thread"
+        approval_required: true
+        approval_gate: "external_publishing"
+
+      publish_to_email:
+        description: "Send synthesis via email digest"
+        approval_required: true
+        approval_gate: "external_publishing"
+
+    handoff:
+      hand_off_to_researcher:
+        description: "Request additional research from Researcher Agent"
+        target_agent: "researcher"
+        reason_template: "Synthesis needs additional data — initiating research"
+
+      hand_off_to_executor:
+        description: "Hand off execution tasks to Executor"
+        target_agent: "executor"
+        reason_template: "Synthesis complete — ready for code/deployment actions"
+
+  # ============================================================================
+  # Inference Overrides — synthesis is local-friendly
+  # ============================================================================
+
+  inference:
+    routing_strategy: "cost-optimized"  # Local-first for synthesis tasks
+
+  # ============================================================================
+  # Config Overrides
+  # ============================================================================
+
+  config:
+    cost_limit_daily_usd: 10.0
+    cost_limit_monthly_usd: 200.0
+    quality_validation: true
+    quality_validation_frequency: "always"  # Every synthesis gets QA check
+
+  # ============================================================================
+  # Integrations
+  # ============================================================================
+
+  integrations:
+    slack: true
+    twitter: true
+    email: true
+    google_calendar: false
+    git: false
+
+  # ============================================================================
+  # Metadata
+  # ============================================================================
+
+  metadata:
+    version: "1.0.0"
+    created_at: "2026-04-29"
+    last_updated: "2026-04-29"
+    maintainer: "cathy"
+    tags: ["openclaw", "data", "synthesis", "production"]
+    stability: "production"
