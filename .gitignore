@@ -7,3 +7,4 @@ data/proven_tasks.json
 logs/
 .env
 *.env
+.venv/
