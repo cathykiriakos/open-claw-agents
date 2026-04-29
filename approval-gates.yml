@@ -1,0 +1,65 @@
+# approval-gates.yml
+# Centralized approval rules applied to all agents
+# Individual agents can override specific gates in their own manifests
+
+approval_gates:
+
+  # Gate 1: Cost threshold — alert on expensive single inferences
+  cost_threshold:
+    enabled: true
+    condition: "inference_cost_usd > cost_threshold_default"
+    cost_threshold_default: 2.0     # Alert if single inference > $2
+    action: "require_human_approval"
+    timeout_seconds: 3600
+    severity: "warning"
+    message_template: "Agent {agent_id} wants to run inference costing ~${cost_usd}. Approve?"
+
+  # Gate 2: Git operations — all commits/pushes require review
+  git_operations:
+    enabled: true
+    operations:
+      - "commit"
+      - "push"
+      - "merge"
+      - "force-push"
+      - "reset --hard"
+      - "rebase"
+    action: "require_human_approval"
+    timeout_seconds: 3600
+    severity: "critical"
+    message_template: "Agent {agent_id} wants to run git {operation} on {branch}. Approve?"
+
+  # Gate 3: Destructive operations — block rm/delete/truncate
+  destructive_operations:
+    enabled: true
+    operations:
+      - "rm"
+      - "rmdir"
+      - "delete"
+      - "clear"
+      - "truncate"
+      - "drop"
+      - "prune"
+    action: "require_human_approval"
+    timeout_seconds: 3600
+    severity: "critical"
+    message_template: "Agent {agent_id} wants to run destructive operation: {operation}. Approve?"
+
+  # Gate 4: External publishing — all outbound communication
+  external_publishing:
+    enabled: true
+    channels:
+      - "twitter"
+      - "slack"
+      - "email"
+      - "webhook"
+      - "notion"
+    action: "require_human_approval"
+    timeout_seconds: 3600
+    severity: "critical"
+    message_template: "Agent {agent_id} wants to publish to {channel}. Review content and approve?"
+
+# Default policy if a gate is not matched:
+default_policy:
+  action: "allow"
+  log: true

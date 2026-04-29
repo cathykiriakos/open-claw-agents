@@ -1,0 +1,75 @@
+# tools/search-tools.yml
+# Research and search tools used by Researcher agent (and flex roles)
+
+tools:
+  search:
+    web_search:
+      description: "Search the web for information on a topic"
+      input:
+        query: { type: "string", required: true }
+        max_results: { type: "integer", default: 10 }
+        recency: { type: "string", enum: ["any", "week", "month", "year"], default: "month" }
+      output:
+        results: { type: "array", items: { type: "object", fields: ["title", "url", "snippet"] } }
+      cost_estimate: "free (local index) or API cost"
+
+    reddit_search:
+      description: "Search Reddit for discussions on a topic"
+      input:
+        query: { type: "string", required: true }
+        subreddits: { type: "array", items: { type: "string" }, required: false }
+        sort: { type: "string", enum: ["hot", "top", "new", "relevance"], default: "relevance" }
+        limit: { type: "integer", default: 25 }
+      output:
+        posts: { type: "array" }
+      cost_estimate: "free (Reddit API)"
+
+    hackernews_search:
+      description: "Search Hacker News stories and comments"
+      input:
+        query: { type: "string", required: true }
+        type: { type: "string", enum: ["story", "comment", "all"], default: "story" }
+        limit: { type: "integer", default: 20 }
+      output:
+        items: { type: "array" }
+      cost_estimate: "free (Algolia HN API)"
+
+    youtube_search:
+      description: "Search YouTube for videos on a topic"
+      input:
+        query: { type: "string", required: true }
+        max_results: { type: "integer", default: 10 }
+        order: { type: "string", enum: ["relevance", "viewCount", "date"], default: "relevance" }
+      output:
+        videos: { type: "array", items: { type: "object", fields: ["title", "channel", "url", "views"] } }
+      cost_estimate: "YouTube Data API quota"
+
+    twitter_search:
+      description: "Search Twitter/X for posts on a topic"
+      input:
+        query: { type: "string", required: true }
+        limit: { type: "integer", default: 50 }
+        filter: { type: "string", enum: ["top", "latest", "people", "media"], default: "top" }
+      output:
+        tweets: { type: "array" }
+      cost_estimate: "Twitter API quota"
+
+  scraping:
+    fetch_page:
+      description: "Fetch and parse a web page"
+      input:
+        url: { type: "string", required: true }
+        extract: { type: "string", enum: ["text", "links", "structured"], default: "text" }
+      output:
+        content: { type: "string" }
+        links: { type: "array", required: false }
+      cost_estimate: "free"
+
+    fetch_rss:
+      description: "Fetch and parse an RSS/Atom feed"
+      input:
+        url: { type: "string", required: true }
+        limit: { type: "integer", default: 20 }
+      output:
+        items: { type: "array" }
+      cost_estimate: "free"

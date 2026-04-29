@@ -1,0 +1,97 @@
+# agents/researcher.agent.yml
+# Researcher Agent — investigates trends, opportunities, entrepreneurial ideas
+
+agent:
+  extends: ../templates/base-agent.yml
+
+  id: "researcher"
+  name: "Researcher Agent"
+  primary_role: "research"
+  description: "Investigates trends, opportunities, and entrepreneurial ideas across Reddit, HN, X, and YouTube"
+
+  # ============================================================================
+  # Capabilities
+  # ============================================================================
+
+  capabilities:
+    primary_role: "research"
+    can_research: true
+    can_synthesize: true     # Flex: can hand findings to Data agent or do light synthesis
+    can_execute: false
+    can_schedule: false
+    can_handoff: true
+
+  # ============================================================================
+  # Tools
+  # ============================================================================
+
+  tools:
+    inference:
+      $ref: "../tools/inference-tools.yml"
+
+    research:
+      $ref: "../tools/search-tools.yml"
+
+    synthesis:
+      $ref: "../tools/data-tools.yml"
+
+    handoff:
+      hand_off_to_data:
+        description: "Hand off research findings to Data Agent for synthesis"
+        target_agent: "data"
+        reason_template: "Research complete — ready for synthesis and publishing"
+
+      hand_off_to_executor:
+        description: "Hand off task to Executor for code work"
+        target_agent: "executor"
+        reason_template: "Task requires code execution or CLI operations"
+
+  # ============================================================================
+  # Inference Overrides
+  # ============================================================================
+
+  inference:
+    routing_strategy: "quality-first"
+    models:
+      cloud:
+        cost_threshold_usd: 5.0    # Researcher can spend more on complex research
+
+  # ============================================================================
+  # Approval Gate Overrides
+  # ============================================================================
+
+  approval_gates:
+    cost_threshold:
+      cost_threshold_default: 5.0  # Higher limit for research tasks
+
+  # ============================================================================
+  # Config Overrides
+  # ============================================================================
+
+  config:
+    cost_limit_daily_usd: 20.0
+    cost_limit_monthly_usd: 400.0
+    verbose_logging: true          # Debug research workflows
+
+  # ============================================================================
+  # Integrations
+  # ============================================================================
+
+  integrations:
+    twitter: true
+    slack: true
+    email: false
+    google_calendar: false
+    git: false
+
+  # ============================================================================
+  # Metadata
+  # ============================================================================
+
+  metadata:
+    version: "1.0.0"
+    created_at: "2026-04-29"
+    last_updated: "2026-04-29"
+    maintainer: "cathy"
+    tags: ["openclaw", "researcher", "production"]
+    stability: "production"

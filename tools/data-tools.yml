@@ -1,0 +1,75 @@
+# tools/data-tools.yml
+# Data synthesis tools used by Data Agent (and flex roles)
+
+tools:
+  synthesis:
+    synthesize_findings:
+      description: "Synthesize research findings from multiple sources into structured insights"
+      input:
+        sources: { type: "array", items: { type: "object" }, required: true }
+        topic: { type: "string", required: true }
+        output_format: { type: "string", enum: ["markdown", "json", "bullet_points"], default: "markdown" }
+      output: { type: "string" }
+      cost_estimate: "free if local, ~$0.05 if Claude"
+
+    extract_themes:
+      description: "Extract recurring themes from a collection of text"
+      input:
+        texts: { type: "array", items: { type: "string" }, required: true }
+        max_themes: { type: "integer", default: 5 }
+      output:
+        themes: { type: "array", items: { type: "string" } }
+        evidence: { type: "object" }
+      cost_estimate: "free if local"
+
+    rank_by_relevance:
+      description: "Rank items by relevance to a given topic"
+      input:
+        items: { type: "array", items: { type: "object" }, required: true }
+        topic: { type: "string", required: true }
+        top_n: { type: "integer", default: 10 }
+      output: { type: "array" }
+      cost_estimate: "free if local"
+
+    generate_report:
+      description: "Generate a structured report from synthesized data"
+      input:
+        data: { type: "object", required: true }
+        template: { type: "string", enum: ["research_brief", "trend_report", "opportunity_analysis"], default: "research_brief" }
+      output: { type: "string" }
+      cost_estimate: "$0.02-$0.10 (uses Claude for quality)"
+
+  storage:
+    save_synthesis:
+      description: "Save synthesis result to disk"
+      input:
+        content: { type: "string", required: true }
+        filename: { type: "string", required: true }
+        format: { type: "string", enum: ["md", "json", "txt"], default: "md" }
+      cost_estimate: "free"
+
+    load_synthesis:
+      description: "Load a previously saved synthesis"
+      input:
+        filename: { type: "string", required: true }
+      output: { type: "string" }
+      cost_estimate: "free"
+
+  publishing:
+    publish_to_slack:
+      description: "Publish synthesis to a Slack channel"
+      input:
+        message: { type: "string", required: true }
+        channel: { type: "string", default: "#ai-research" }
+      approval_required: true
+      approval_gate: "external_publishing"
+      cost_estimate: "free"
+
+    publish_to_twitter:
+      description: "Post a thread to Twitter/X"
+      input:
+        content: { type: "string", required: true }
+        thread: { type: "boolean", default: true }
+      approval_required: true
+      approval_gate: "external_publishing"
+      cost_estimate: "free"
