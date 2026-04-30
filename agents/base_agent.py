@@ -20,14 +20,13 @@ class OpenClawAgent(ABC):
         primary_role: str,
         context_store: ContextStore,
         inference_agent: OpenClawInferenceAgent,
-        cost_threshold_usd: float = 2.0,
+        cost_threshold_usd: float = 0.0,  # unused in local-only mode; kept for API compatibility
     ):
         self.agent_id = agent_id
         self.agent_name = agent_name
         self.primary_role = primary_role
         self.context = context_store
         self.inference = inference_agent
-        self.cost_threshold = cost_threshold_usd
         self.current_task_id: Optional[str] = None
 
     async def process_task(self, prompt: str, task_type: str = "default") -> str:
@@ -37,7 +36,9 @@ class OpenClawAgent(ABC):
             prompt=prompt,
         )
         self.current_task_id = task_id
-        self.context.audit_action(self.agent_id, "task_started", {"task_id": task_id, "task_type": task_type})
+        self.context.audit_action(
+            self.agent_id, "task_started", {"task_id": task_id, "task_type": task_type}
+        )
 
         try:
             result = await self._execute_task(prompt, task_id)
@@ -46,7 +47,9 @@ class OpenClawAgent(ABC):
             return result
         except Exception as exc:
             self.context.update_task_status(task_id, "failed", str(exc))
-            self.context.audit_action(self.agent_id, "task_failed", {"task_id": task_id, "error": str(exc)})
+            self.context.audit_action(
+                self.agent_id, "task_failed", {"task_id": task_id, "error": str(exc)}
+            )
             raise
 
     @abstractmethod
@@ -66,29 +69,21 @@ class OpenClawAgent(ABC):
             {"to": target_agent_id, "task_id": task_id, "reason": reason},
         )
 
-    def requires_approval(self, action_type: str, cost_usd: float = 0.0) -> bool:
-        gates = {
-            "git_push": True,
-            "destructive_op": True,
-            "publish": True,
-            "cost_threshold": cost_usd > self.cost_threshold,
-        }
-        return gates.get(action_type, False)
+    def requires_approval(self, action_type: str) -> bool:
+        return action_type in {"git_push", "destructive_op", "publish"}
 
     async def request_approval(
         self,
         task_id: str,
         action_type: str,
-        cost_usd: float = 0.0,
         timeout_seconds: int = 3600,
     ) -> bool:
         approval_id = self.context.request_approval(
             task_id=task_id,
             agent_id=self.agent_id,
             action_type=action_type,
-            cost_usd=cost_usd,
         )
-        print(f"\n[{self.agent_name}] Approval required for '{action_type}' (cost=${cost_usd:.4f})")
+        print(f"\n[{self.agent_name}] Approval required for '{action_type}'")
         print(f"  approval_id: {approval_id}")
         print(f"  Run: python -m openclaw approve {approval_id}")
 
@@ -96,7 +91,7 @@ class OpenClawAgent(ABC):
         while asyncio.get_event_loop().time() < deadline:
             pending = self.context.get_pending_approvals()
             if not any(a["id"] == approval_id for a in pending):
-                return True  # approved (no longer pending)
+                return True
             await asyncio.sleep(5)
 
-        return False  # timed out
+        return False
