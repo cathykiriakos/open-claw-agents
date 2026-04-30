@@ -5,16 +5,18 @@ from __future__ import annotations
 import json
 from typing import Optional
 
+import config
 from agents.base_agent import OpenClawAgent
+from tools_lib.search import SearchTools, SearchResult
 
 
 class ResearcherAgent(OpenClawAgent):
     """
     Investigates trends, opportunities, and entrepreneurial ideas.
 
-    PRIMARY:  Research — web/Reddit/HN/YouTube queries synthesised via Gemma
-    FLEX:     Can do light synthesis; hands off heavy synthesis to DataAgent
-              Can hand off code work to ExecutorAgent
+    PRIMARY:  Research — queries HN, Reddit, YouTube, DuckDuckGo; synthesises via Gemma
+    FLEX:     Light synthesis; hands off heavy synthesis to DataAgent
+              Hands off code work to ExecutorAgent
     """
 
     def __init__(self, context_store, inference_agent):
@@ -25,88 +27,86 @@ class ResearcherAgent(OpenClawAgent):
             context_store=context_store,
             inference_agent=inference_agent,
         )
+        self.search = SearchTools(youtube_api_key=config.YOUTUBE_API_KEY)
 
     async def _execute_task(self, prompt: str, task_id: str) -> str:
         prompt_lower = prompt.lower()
 
-        # Flex: heavy synthesis → hand off to Data Agent
+        # Flex: heavy synthesis/publishing → hand off to Data Agent
         if any(kw in prompt_lower for kw in ["synthesize", "publish", "post to slack", "post to twitter"]):
             await self.handoff_to("data", task_id, "Task requires synthesis/publishing expertise")
-            return f"[researcher] Handed off task {task_id} to Data Agent for synthesis."
+            return f"[researcher] Handed off task {task_id} to Data Agent."
 
-        # Flex: code/deployment work → hand off to Executor
+        # Flex: code/deployment → hand off to Executor
         if any(kw in prompt_lower for kw in ["execute", "deploy", "git push", "run script"]):
             await self.handoff_to("executor", task_id, "Task requires code execution")
             return f"[researcher] Handed off task {task_id} to Executor Agent."
 
-        # Primary: research — build an enriched prompt and run inference
-        research_prompt = self._build_research_prompt(prompt)
-        response = await self.inference.infer(prompt=research_prompt, task_type="complex")
-
-        # Persist the finding so other agents can reference it
-        self.context.save_agent_context(
-            self.agent_id,
-            {"task_id": task_id, "query": prompt, "finding": response.content},
-            context_type="research_finding",
-        )
-
-        return response.content
+        # Primary: search + synthesise
+        return await self.research(prompt, task_id)
 
     # ------------------------------------------------------------------
-    # Tools
+    # Core research flow
     # ------------------------------------------------------------------
 
-    def _build_research_prompt(self, topic: str) -> str:
-        """Wrap the raw topic in a structured research prompt."""
-        return (
-            f"You are a research analyst specialising in entrepreneurship and technology trends.\n\n"
-            f"Research task: {topic}\n\n"
-            f"Provide a structured analysis covering:\n"
-            f"1. Key findings and current state\n"
-            f"2. Emerging trends\n"
-            f"3. Opportunities and risks\n"
-            f"4. Recommended next steps\n\n"
-            f"Be concise, factual, and actionable."
-        )
+    async def research(self, topic: str, task_id: Optional[str] = None) -> str:
+        """Search all sources, then synthesise findings via Gemma."""
+        print(f"[researcher] Searching: {topic}")
+        results = await self.search.search_all(topic, limit_per_source=6)
 
-    async def search_hackernews(self, query: str, limit: int = 10) -> list[dict]:
-        """Query the Algolia HN API (free, no key needed)."""
-        import httpx
-
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(
-                "https://hn.algolia.com/api/v1/search",
-                params={"query": query, "hitsPerPage": limit, "tags": "story"},
+        if results:
+            sources_block = self.search.format_for_prompt(results)
+            synthesis_prompt = (
+                f"You are a research analyst specialising in entrepreneurship and technology.\n\n"
+                f"Topic: {topic}\n\n"
+                f"Search results from HN, Reddit, and web:\n{sources_block}\n\n"
+                f"Provide a structured analysis:\n"
+                f"1. Key findings (3-5 bullet points)\n"
+                f"2. Emerging trends\n"
+                f"3. Opportunities and risks\n"
+                f"4. Recommended next steps\n\n"
+                f"Be concise and factual."
             )
-            resp.raise_for_status()
-            hits = resp.json().get("hits", [])
-        return [
-            {"title": h.get("title"), "url": h.get("url"), "points": h.get("points", 0)}
-            for h in hits
-        ]
+        else:
+            print("[researcher] No search results — running inference from training knowledge.")
+            synthesis_prompt = (
+                f"You are a research analyst. Research this topic from your knowledge:\n\n"
+                f"Topic: {topic}\n\n"
+                f"Provide: key findings, trends, opportunities/risks, next steps."
+            )
 
-    async def research_with_hn(self, topic: str, task_id: Optional[str] = None) -> str:
-        """Fetch HN stories then synthesise findings via Gemma."""
-        stories = await self.search_hackernews(topic)
-        stories_text = "\n".join(
-            f"- {s['title']} ({s['points']} pts) — {s['url']}" for s in stories
-        )
-        synthesis_prompt = (
-            f"Based on these recent Hacker News stories about '{topic}':\n\n"
-            f"{stories_text}\n\n"
-            f"Summarise the key themes, opportunities, and any risks in 3-5 bullet points."
-        )
         response = await self.inference.infer(prompt=synthesis_prompt, task_type="complex")
+        content = response.content
 
         if task_id:
             self.context.save_agent_context(
                 self.agent_id,
-                {"task_id": task_id, "source": "hackernews", "query": topic, "finding": response.content},
+                {
+                    "task_id": task_id,
+                    "query": topic,
+                    "sources_found": len(results),
+                    "finding": content,
+                },
                 context_type="research_finding",
             )
 
-        return response.content
+        return content
+
+    # ------------------------------------------------------------------
+    # Targeted source methods (callable directly)
+    # ------------------------------------------------------------------
+
+    async def search_hackernews(self, query: str, limit: int = 10) -> list[SearchResult]:
+        return await self.search.search_hackernews(query, limit)
+
+    async def search_reddit(self, query: str, subreddit: str = "all", limit: int = 10) -> list[SearchResult]:
+        return await self.search.search_reddit(query, subreddit=subreddit, limit=limit)
+
+    async def search_youtube(self, query: str, limit: int = 10) -> list[SearchResult]:
+        if not config.YOUTUBE_API_KEY:
+            print("[researcher] YouTube search requires YOUTUBE_API_KEY in .env")
+            return []
+        return await self.search.search_youtube(query, limit)
 
     def get_recent_findings(self, limit: int = 5) -> list[dict]:
-        """Retrieve the most recent research findings from context."""
         return self.context.get_agent_context(self.agent_id, limit=limit)
